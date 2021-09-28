@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <climits>
+#include "bufferPool.h"
 
 using namespace std;
 const int MAX = 5; //size of each node
@@ -9,6 +10,7 @@ class Node
 {
 	bool IS_LEAF;
 	int* key, size;
+	Address* address;
 	Node** ptr;
 	friend class BPTree;
 
@@ -16,6 +18,7 @@ public:
 	Node() {
 		//dynamic memory allocation
 		key = new int[MAX];
+		address = new Address[MAX];
 		ptr = new Node*[MAX + 1];
 	}
 };
@@ -36,7 +39,7 @@ public:
 		cleanUp(root);
 	}
 
-	void insertInternal(int x, Node* cursor, Node* child)
+	void insertInternal(int x, Address address, Node* cursor, Node* child)
 	{
 		if (cursor->size < MAX)
 		{
@@ -48,12 +51,15 @@ public:
 			for (int j = cursor->size;j > i; j--)
 			{
 				cursor->key[j] = cursor->key[j - 1];
-			}//make space for new pointer
+				cursor->address[j] = cursor->address[j - 1];
+			}
+			//make space for new pointer
 			for (int j = cursor->size + 1; j > i + 1; j--)
 			{
 				cursor->ptr[j] = cursor->ptr[j - 1];
 			}
 			cursor->key[i] = x;
+			cursor->address[i] = address;
 			cursor->size++;
 			cursor->ptr[i + 1] = child;
 			//cout << "Inserted key in an Internal node successfully\n";
@@ -67,12 +73,14 @@ public:
 			Node* newInternal = new Node;
 			//create virtual Internal Node;
 			int virtualKey[MAX + 1];
+			Address tempAddressList[MAX + 1];
 			Node* virtualPtr[MAX + 2];
 			//increase number of node by 1
 			numOfNode += 1;
 			for (int i = 0; i < MAX; i++)
 			{
 				virtualKey[i] = cursor->key[i];
+				tempAddressList[i] = cursor->address[i];
 			}
 			for (int i = 0; i < MAX + 1; i++)
 			{
@@ -84,8 +92,10 @@ public:
 			for (int j = MAX + 1;j > i; j--)
 			{
 				virtualKey[j] = virtualKey[j - 1];
+				tempAddressList[j] = tempAddressList[j - 1];
 			}
 			virtualKey[i] = x;
+			tempAddressList[i] = address;
 			//make space for new ptr
 			for (int j = MAX + 2;j > i + 1; j--)
 			{
@@ -100,6 +110,7 @@ public:
 			for (i = 0, j = cursor->size + 1; i < newInternal->size; i++, j++)
 			{
 				newInternal->key[i] = virtualKey[j];
+				newInternal->address[i] = tempAddressList[j];
 			}
 			for (i = 0, j = cursor->size + 1; i < newInternal->size + 1; i++, j++)
 			{
@@ -111,6 +122,7 @@ public:
 				//if cursor is a root node, we create a new root
 				Node* newRoot = new Node;
 				newRoot->key[0] = child->key[0];
+				newRoot->address[0] = child->address[0];
 				newRoot->ptr[0] = cursor;
 				newRoot->ptr[1] = newInternal;
 				newRoot->IS_LEAF = false;
@@ -125,7 +137,7 @@ public:
 			{
 				//recursion
 				//find depth first search to find parent of cursor
-				insertInternal(cursor->key[cursor->size], findParent(root, cursor), newInternal);
+				insertInternal(cursor->key[cursor->size], cursor->address[cursor->size], findParent(root, cursor), newInternal);
 			}
 		}
 	}
@@ -333,47 +345,84 @@ public:
 		return parent;
 	}
 
-	void search(int x)
+	void search(int lowerBound, int upperBound)
 	{
+		bool search = true;
+		int numOfIndexAccess = 1, numOfBlkAccess = 1, numOfMatch = 0;
+		float totalRating = 0, avgRating = 0;
 		//search logic
 		if (root == NULL)
 		{
 			//empty
-			cout << "Tree empty\n";
+			cout << "Tree is empty." << endl;
 		}
 		else
 		{
 			Node* cursor = root;
 			//in the following while loop, cursor will travel to the leaf node possibly consisting the key
-			while (cursor->IS_LEAF == false)
+			cout << "The content of the Index Nodes = | ";
+			cout << getRecords(cursor->address[0]).tconst << " | ";
+			while (!cursor->IS_LEAF)
 			{
 				for (int i = 0; i < cursor->size; i++)
 				{
-					if (x < cursor->key[i])
+					if (lowerBound <= cursor->key[i])
 					{
 						cursor = cursor->ptr[i];
+						numOfIndexAccess += 1;
+						cout << getRecords(cursor->address[i]).tconst << " | ";
 						break;
 					}
 					if (i == cursor->size - 1)
 					{
 						cursor = cursor->ptr[i + 1];
+						numOfIndexAccess += 1;
+						cout << getRecords(cursor->address[0]).tconst << " | ";
 						break;
 					}
 				}
 			}
+			cout << endl << "The number of Index Nodes accessed = " << numOfIndexAccess << endl;
+			cout << endl << "The content of the Data Blocks = | ";
 			//in the following for loop, we search for the key if it exists
-			for (int i = 0; i < cursor->size; i++)
-			{
-				if (cursor->key[i] == x)
+			while (search) {
+				for (int i = 0; i < cursor->size; i++)
 				{
-					cout << "Found\n";
-					return;
+					if (cursor->key[i] >= lowerBound and cursor->key[i] <= upperBound)
+					{
+						numOfMatch += 1;
+						Record record = getRecords(cursor->address[i]);
+						cout << record.tconst << " | ";
+						totalRating += record.avgRating;
+					}
+					else if (cursor->key[i] > upperBound)
+					{
+						search = false;
+						break;
+					}
+
+					if (i == cursor->size - 1)
+					{
+						cursor = cursor->ptr[i + 1];
+						numOfBlkAccess += 1;
+						break;
+					}
 				}
 			}
-			cout << "Not found\n";
+			cout << endl << "The number of Data Blocks accessed = " << numOfBlkAccess << endl << endl;
+			cout << "The total number of matches = " << numOfMatch << endl;
+			if (numOfMatch > 0)
+				cout << "The average of 'averageRating' = " << totalRating / numOfMatch << endl;
+			else
+				cout << "No records found." << endl;
 		}
 	}
-	void insert(int x)
+
+	Record getRecords(Address address) {
+		void* mainMemoryAddress = (uchar*)address.blockAddress + address.offset;
+		return (*(Record*)mainMemoryAddress);
+	}
+	void insert(Address address, int x)
 	{
 		//insert logic
 		if (root == NULL)
@@ -382,6 +431,7 @@ public:
 			root->key[0] = x;
 			root->IS_LEAF = true;
 			root->size = 1;
+			root->address[0] = address;
 			//increase number of node and tree level by 1
 			numOfNode += 1;
 			treeLvl += 1;
@@ -420,8 +470,10 @@ public:
 				for (int j = cursor->size;j > i; j--)
 				{
 					cursor->key[j] = cursor->key[j - 1];
+					cursor->address[j] = cursor->address[j - 1];
 				}
 				cursor->key[i] = x;
+				cursor->address[i] = address;
 				cursor->size++;
 				cursor->ptr[cursor->size] = cursor->ptr[cursor->size - 1];
 				cursor->ptr[cursor->size - 1] = NULL;
@@ -436,10 +488,13 @@ public:
 				Node* newLeaf = new Node;
 				//create a virtual node and insert x into it
 				int virtualNode[MAX + 1];
+				Address tempAddressList[MAX + 1];
 				numOfNode += 1;
+
 				for (int i = 0; i < MAX; i++)
 				{
 					virtualNode[i] = cursor->key[i];
+					tempAddressList[i] = cursor->address[i];
 				}
 				int i = 0, j;
 				while (x > virtualNode[i] && i < MAX) i++;
@@ -447,8 +502,10 @@ public:
 				for (int j = MAX + 1;j > i; j--)
 				{
 					virtualNode[j] = virtualNode[j - 1];
+					tempAddressList[j] = tempAddressList[j - 1];
 				}
 				virtualNode[i] = x;
+				tempAddressList[i] = address;
 				newLeaf->IS_LEAF = true;
 				//split the cursor into two leaf nodes
 				cursor->size = (MAX + 1) / 2;
@@ -462,10 +519,12 @@ public:
 				for (i = 0; i < cursor->size; i++)
 				{
 					cursor->key[i] = virtualNode[i];
+					cursor->address[i] = tempAddressList[i];
 				}
 				for (i = 0, j = cursor->size; i < newLeaf->size; i++, j++)
 				{
 					newLeaf->key[i] = virtualNode[j];
+					newLeaf->address[i] = tempAddressList[j];
 				}
 				//modify the parent
 				if (cursor == root)
@@ -473,6 +532,7 @@ public:
 					//if cursor is a root node, we create a new root
 					Node* newRoot = new Node;
 					newRoot->key[0] = newLeaf->key[0];
+					newRoot->address[0] = newLeaf->address[0];
 					newRoot->ptr[0] = cursor;
 					newRoot->ptr[1] = newLeaf;
 					newRoot->IS_LEAF = false;
@@ -486,7 +546,7 @@ public:
 				else
 				{
 					//insert new key in parent node
-					insertInternal(newLeaf->key[0], parent, newLeaf);
+					insertInternal(newLeaf->key[0], newLeaf->address[0], parent, newLeaf);
 				}
 			}
 		}
@@ -673,9 +733,9 @@ public:
 		if (cursor != NULL and level >= 0)
 		{
 			if (child == 0)
-				cout << "Content of Root Node: ";
+				cout << "Content of Root Node = ";
 			else
-				cout << "Content of " << child << " Child Node: ";
+				cout << "Content of " << child << " Child Node = ";
 
 			for (int i = 0; i < cursor->size; i++)
 			{ 
@@ -703,7 +763,7 @@ public:
 		//	{
 		//		for (int i = 0; i < cursor->size + 1; i++)
 		//		{
-		//			display(cursor->ptr[i]);
+		//			display(cursor->ptr[i], level, child);
 		//		}
 		//	}
 		//}

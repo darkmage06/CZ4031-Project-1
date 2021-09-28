@@ -46,31 +46,34 @@ int main()
 
 			void* recordAddress = (uchar*)dataRecord.blockAddress + dataRecord.offset;
 			memcpy(recordAddress, &record, sizeof(record));
-			//cout << sizeof(record.tconst) << '\n';
-			//cout << record.avgRating << '\n';
 		}
 		dataFile.close();
 	}
 	else cout << "Unable to open/detect data.tsv file.\n";
 
-	cout << endl << "---------------------Experiment 1---------------------" << endl << endl;
+	cout << endl << "------------------------Experiment 1------------------------" << endl << endl;
 	cout << "Number of blocks = " << bufferPool.getNumOfBlkAlloc() << endl;
 	cout << "Size of Database = " << double(bufferPool.getTotalRecordSize())/(1000*1000) << "MB" << endl;
 	cout << "Number of Blocks remaining = " << bufferPool.getNumOfBlkAvail() << endl;
 
 	BPTree tree;
-	cout << endl << "---------------------Experiment 2---------------------" << endl << endl;
+	cout << endl << "------------------------Experiment 2------------------------" << endl << endl;
 	for (int i = 0; i < dataset.size(); ++i) {
-		void* mainMemoryAddress = operator new(bufferPool.getBlkSize());
-		memcpy(mainMemoryAddress, (uchar*)dataset[i].blockAddress + dataset[i].offset, bufferPool.getBlkSize());
+		void* mainMemoryAddress = (uchar*)dataset[i].blockAddress + dataset[i].offset;
 		uint numVotes = (*(Record*)mainMemoryAddress).numVotes;
-		tree.insert(numVotes);
+		tree.insert(dataset[i], numVotes);
 	}
-	cout << "Parameter (n) of B+ Tree: " << MAX << endl;
-	cout << "Number of Nodes of B+ Tree " << tree.getNumOfNode() << endl;
-	cout << "Height of the B+ Tree: " << tree.getTreeLvl() << endl;
+	cout << "Parameter (n) of B+ Tree = " << MAX << endl;
+	cout << "Number of Nodes of B+ Tree = " << tree.getNumOfNode() << endl;
+	cout << "Height of the B+ Tree = " << tree.getTreeLvl() << endl;
 	tree.display(tree.getRoot(), 1, 0);
 	
-	cout << endl << "---------------------Experiment 3---------------------" << endl << endl;
+	cout << endl << "------------------------Experiment 3------------------------" << endl << endl;
+	cout << "Searching for 'numVotes' = 20..." << endl << endl;
+	tree.search(20, 20);
+
+	cout << endl << "------------------------Experiment 4------------------------" << endl << endl;
+	cout << "Searching for 'numVotes' = 0 to 500..." << endl << endl;
+	tree.search(0, 500);
 	return 0;
 }
