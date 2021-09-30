@@ -43,6 +43,8 @@ public:
 
     bool blkAvail();
 
+    void deleteRecord(Address address);
+
     uint getBufferPoolSize();
 
     uint getBlkSize();

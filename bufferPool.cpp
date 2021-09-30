@@ -54,6 +54,44 @@ bool bufferPool::blkAvail() {
         return false;
 }
 
+void bufferPool::deleteRecord(Address address)
+{
+    int result;
+    try {
+        // to delete a record, we can change the values stored in that record to NULL
+        // traverse from the beginning of the record address to the end based on the size of the record
+        // fill the elements to the null character
+        totalRecordSize -= 20;
+        void* recordAddress = (uchar*)address.blockAddress + address.offset;
+        fill((uchar*)address.blockAddress + address.offset, (uchar*)address.blockAddress + address.offset + 20, '\0');
+
+        // Block is empty, remove size of block.
+        if (blkSize == 100)
+        {
+            uchar cmpBlk[100];
+            fill(cmpBlk, cmpBlk + 20, '\0');
+            result = equal(cmpBlk, cmpBlk + 20, address.blockAddress);
+        }
+        else
+        {
+            uchar cmpBlk[500];
+            fill(cmpBlk, cmpBlk + 20, '\0');
+            result = equal(cmpBlk, cmpBlk + 20, address.blockAddress);
+        }
+
+        if (result == true)
+        {
+            currentBlkSizeUsed -= blkSize;
+            numBlkAlloc--;
+        }
+    }
+
+    catch (exception& e) {
+        cout << "Exception" << e.what() << "\n";
+        cout << "Delete record or block failed" << "\n";
+    }
+}
+
 uint bufferPool::getBufferPoolSize() {
     return bufferPoolSize;
 }
