@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <climits>
+#include <vector>
 #include "bufferPool.h"
 
 using namespace std;
@@ -26,10 +27,11 @@ public:
 class BPTree
 {
 	Node* root;
-	int numOfNode = 0, treeLvl = 0;
+	int numOfNode = 0, treeLvl = 0, numOfNodeDel = 0;
 
 public:
-	BPTree() {
+	BPTree()
+	{
 		root = NULL;
 	}
 
@@ -62,12 +64,9 @@ public:
 			cursor->address[i] = address;
 			cursor->size++;
 			cursor->ptr[i + 1] = child;
-			//cout << "Inserted key in an Internal node successfully\n";
 		}
 		else
 		{
-			//cout << "Inserted key in an Internal node successfully\n";
-			//cout << "Overflow in internal node!\nSplitting internal node\n";
 			//if overflow in internal node
 			//create new internal node
 			Node* newInternal = new Node;
@@ -131,7 +130,6 @@ public:
 				//increase number of node and tree level by 1
 				numOfNode += 1;
 				treeLvl += 1;
-				//cout << "Created new root\n";
 			}
 			else
 			{
@@ -142,7 +140,7 @@ public:
 		}
 	}
 
-	void removeInternal(int x, Node* cursor, Node* child)
+	void removeInternal(int x, Address address, Node* cursor, Node* child, bufferPool *bufferPool)
 	{
 		//deleting the key x first
 		//checking if key from root is to be deleted
@@ -150,28 +148,17 @@ public:
 		{
 			if (cursor->size == 1)//if only one key is left, change root
 			{
+				treeLvl -= 1;
+				numOfNode -= 1;
+				numOfNodeDel += 1;
 				if (cursor->ptr[1] == child)
 				{
-					delete[] child->key;
-					delete[] child->ptr;
-					delete child;
 					root = cursor->ptr[0];
-					delete[] cursor->key;
-					delete[] cursor->ptr;
-					delete cursor;
-					cout << "Changed root node\n";
 					return;
 				}
 				else if (cursor->ptr[0] == child)
 				{
-					delete[] child->key;
-					delete[] child->ptr;
-					delete child;
 					root = cursor->ptr[1];
-					delete[] cursor->key;
-					delete[] cursor->ptr;
-					delete cursor;
-					cout << "Changed root node\n";
 					return;
 				}
 			}
@@ -187,6 +174,7 @@ public:
 		for (int i = pos; i < cursor->size; i++)
 		{
 			cursor->key[i] = cursor->key[i + 1];
+			cursor->address[i] = cursor->address[i + 1];
 		}
 		//now deleting the pointer child
 		for (pos = 0; pos < cursor->size + 1; pos++)
@@ -203,10 +191,8 @@ public:
 		cursor->size--;
 		if (cursor->size >= (MAX + 1) / 2 - 1)//no underflow
 		{
-			cout << "Deleted " << x << " from internal node successfully\n";
 			return;
 		}
-		cout << "Underflow in internal node!\n";
 		//underflow, try to transfer first
 		if (cursor == root)return;
 		Node* parent = findParent(root, cursor);
@@ -232,10 +218,13 @@ public:
 				for (int i = cursor->size; i > 0; i--)
 				{
 					cursor->key[i] = cursor->key[i - 1];
+					cursor->address[i] = cursor->address[i - 1];
 				}
 				//transfer key from left sibling through parent
 				cursor->key[0] = parent->key[leftSibling];
+				cursor->address[0] = parent->address[leftSibling];
 				parent->key[leftSibling] = leftNode->key[leftNode->size - 1];
+				parent->address[leftSibling] = leftNode->address[leftNode->size - 1];
 				//transfer last pointer from leftnode to cursor
 				//make space for transfer of ptr
 				for (int i = cursor->size + 1; i > 0; i--)
@@ -246,7 +235,6 @@ public:
 				cursor->ptr[0] = leftNode->ptr[leftNode->size];
 				cursor->size++;
 				leftNode->size--;
-				cout << "Transferred " << cursor->key[0] << " from left sibling of internal node\n";
 				return;
 			}
 		}
@@ -258,10 +246,13 @@ public:
 			{
 				//transfer key from right sibling through parent
 				cursor->key[cursor->size] = parent->key[pos];
+				cursor->address[cursor->size] = parent->address[pos];
 				parent->key[pos] = rightNode->key[0];
+				parent->address[pos] = rightNode->address[0];
 				for (int i = 0; i < rightNode->size - 1; i++)
 				{
 					rightNode->key[i] = rightNode->key[i + 1];
+					rightNode->address[i] = rightNode->address[i + 1];
 				}
 				//transfer first pointer from rightnode to cursor
 				//transfer ptr
@@ -272,7 +263,6 @@ public:
 				}
 				cursor->size++;
 				rightNode->size--;
-				cout << "Transferred " << cursor->key[0] << " from right sibling of internal node\n";
 				return;
 			}
 		}
@@ -282,11 +272,13 @@ public:
 			//leftnode + parent key + cursor
 			Node* leftNode = parent->ptr[leftSibling];
 			leftNode->key[leftNode->size] = parent->key[leftSibling];
+			leftNode->address[leftNode->size] = parent->address[leftSibling];
 			for (int i = leftNode->size + 1, j = 0; j < cursor->size; j++)
 			{
 				leftNode->key[i] = cursor->key[j];
+				leftNode->address[i] = cursor->address[j];
 			}
-			for (int i = leftNode->size + 1, j = 0; j < cursor->size + 1; j++)
+			for (int i = leftNode->size + 1, j = 0; j < cursor->size; j++)
 			{
 				leftNode->ptr[i] = cursor->ptr[j];
 				cursor->ptr[j] = NULL;
@@ -294,20 +286,22 @@ public:
 			leftNode->size += cursor->size + 1;
 			cursor->size = 0;
 			//delete cursor
-			removeInternal(parent->key[leftSibling], parent, cursor);
-			cout << "Merged with left sibling\n";
-
+			removeInternal(parent->key[leftSibling], parent->address[leftSibling], parent, cursor, bufferPool);
+			numOfNode -= 1;
+			numOfNodeDel += 1;
 		}
 		else if (rightSibling <= parent->size)
 		{
 			//cursor + parent key + rightnode
 			Node* rightNode = parent->ptr[rightSibling];
 			cursor->key[cursor->size] = parent->key[rightSibling - 1];
+			cursor->address[cursor->size] = parent->address[rightSibling - 1];
 			for (int i = cursor->size + 1, j = 0; j < rightNode->size; j++)
 			{
 				cursor->key[i] = rightNode->key[j];
+				cursor->address[i] = rightNode->address[j];
 			}
-			for (int i = cursor->size + 1, j = 0; j < rightNode->size + 1; j++)
+			for (int i = cursor->size + 1, j = 0; j < rightNode->size; j++)
 			{
 				cursor->ptr[i] = rightNode->ptr[j];
 				rightNode->ptr[j] = NULL;
@@ -315,8 +309,9 @@ public:
 			cursor->size += rightNode->size + 1;
 			rightNode->size = 0;
 			//delete cursor
-			removeInternal(parent->key[rightSibling - 1], parent, rightNode);
-			cout << "Merged with right sibling\n";
+			removeInternal(parent->key[rightSibling - 1], parent->address[rightSibling - 1], parent, rightNode, bufferPool);
+			numOfNode -= 1;
+			numOfNodeDel += 1;
 		}
 	}
 
@@ -350,6 +345,10 @@ public:
 		bool search = true;
 		int numOfIndexAccess = 1, numOfBlkAccess = 1, numOfMatch = 0;
 		float totalRating = 0, avgRating = 0;
+		vector <int> tempIndex;
+		vector <string> tempData;
+		vector <vector <int>> indexNode;
+		vector <vector <string>> dataBlock;
 		//search logic
 		if (root == NULL)
 		{
@@ -360,56 +359,87 @@ public:
 		{
 			Node* cursor = root;
 			//in the following while loop, cursor will travel to the leaf node possibly consisting the key
-			cout << "The content of the Index Nodes = | ";
-			cout << getRecords(cursor->address[0]).tconst << " | ";
 			while (!cursor->IS_LEAF)
 			{
 				for (int i = 0; i < cursor->size; i++)
 				{
+					for (int j = 0; j < cursor->size; j++) 
+					{
+						if (indexNode.size() < 5)
+							tempIndex.push_back(getRecords(cursor->address[j]).numVotes);
+					}
+
 					if (lowerBound <= cursor->key[i])
 					{
 						cursor = cursor->ptr[i];
 						numOfIndexAccess += 1;
-						cout << getRecords(cursor->address[i]).tconst << " | ";
 						break;
 					}
 					if (i == cursor->size - 1)
 					{
 						cursor = cursor->ptr[i + 1];
 						numOfIndexAccess += 1;
-						cout << getRecords(cursor->address[0]).tconst << " | ";
 						break;
 					}
 				}
+				indexNode.push_back(tempIndex);
+				tempIndex.clear();
 			}
-			cout << endl << "The number of Index Nodes accessed = " << numOfIndexAccess << endl;
-			cout << endl << "The content of the Data Blocks = | ";
+			Record record;
 			//in the following for loop, we search for the key if it exists
 			while (search) {
 				for (int i = 0; i < cursor->size; i++)
 				{
+					record = getRecords(cursor->address[i]);
+					if (indexNode.size() < 5)
+						tempIndex.push_back(record.numVotes);
+					if (dataBlock.size() < 5)
+						tempData.push_back(record.tconst);
+
+					if (i == cursor->size - 1 and search == true)
+					{
+						cursor = cursor->ptr[i + 1];
+						numOfIndexAccess += 1;
+						numOfBlkAccess += 1;
+						break;
+					}
 					if (cursor->key[i] >= lowerBound and cursor->key[i] <= upperBound)
 					{
 						numOfMatch += 1;
-						Record record = getRecords(cursor->address[i]);
-						cout << record.tconst << " | ";
 						totalRating += record.avgRating;
 					}
 					else if (cursor->key[i] > upperBound)
 					{
 						search = false;
-						break;
-					}
-
-					if (i == cursor->size - 1)
-					{
-						cursor = cursor->ptr[i + 1];
-						numOfBlkAccess += 1;
-						break;
 					}
 				}
+				if (indexNode.size() < 5)
+					indexNode.push_back(tempIndex);
+				if (dataBlock.size() < 5)
+					dataBlock.push_back(tempData);
+				tempIndex.clear();
+				tempData.clear();
 			}
-			cout << endl << "The number of Data Blocks accessed = " << numOfBlkAccess << endl << endl;
+			cout << "The content of the first 5 Index Nodes =" << endl;
+			for (uint i = 0; i < indexNode.size(); i++)
+			{
+				cout << "| ";
+				for (uint j = 0; j < indexNode[i].size(); j++)
+					cout << indexNode[i][j] << " ";
+				cout << "| " << endl;
+			}
+			cout << "The number of Index Nodes accessed = " << numOfIndexAccess << endl;
+
+			cout << endl << "The content of the first 5 Data Blocks = " << endl;
+			for (uint i = 0; i < dataBlock.size(); i++)
+			{
+				cout << "| ";
+				for (uint j = 0; j < dataBlock[i].size(); j++)
+					cout << dataBlock[i][j] << " ";
+				cout << "| " << endl;
+			}
+			cout << "The number of Data Blocks accessed = " << numOfBlkAccess << endl << endl;
+			
 			cout << "The total number of matches = " << numOfMatch << endl;
 			if (numOfMatch > 0)
 				cout << "The average of 'averageRating' = " << totalRating / numOfMatch << endl;
@@ -477,12 +507,9 @@ public:
 				cursor->size++;
 				cursor->ptr[cursor->size] = cursor->ptr[cursor->size - 1];
 				cursor->ptr[cursor->size - 1] = NULL;
-				//cout << "Inserted " << x << " successfully\n";
 			}
 			else
 			{
-				//cout << "Inserted " << x << " successfully\n";
-				//cout << "Overflow in leaf node!\nSplitting leaf node\n";
 				//overflow condition
 				//create new leaf node
 				Node* newLeaf = new Node;
@@ -541,7 +568,6 @@ public:
 					//increase number of node and tree level by 1
 					numOfNode += 1;
 					treeLvl += 1;
-					//cout << "Created new root\n";
 				}
 				else
 				{
@@ -552,7 +578,7 @@ public:
 		}
 	}
 
-	void remove(int x)
+	bool remove(int x, bufferPool *bufferPool)
 	{
 		//delete logic
 		if (root == NULL)
@@ -562,10 +588,10 @@ public:
 		else
 		{
 			Node* cursor = root;
-			Node* parent;
+			Node* parent = NULL;
 			int leftSibling, rightSibling;
 			//in the following while loop, cursor will will travel to the leaf node possibly consisting the key
-			while (cursor->IS_LEAF == false)
+			while (!cursor->IS_LEAF)
 			{
 				for (int i = 0; i < cursor->size; i++)
 				{
@@ -594,45 +620,44 @@ public:
 				if (cursor->key[pos] == x)
 				{
 					found = true;
+					bufferPool->deleteRecord(cursor->address[pos]);
 					break;
 				}
 			}
 			if (!found)//if key does not exist in that leaf node
 			{
-				cout << "Not found\n";
-				return;
+				return false;
 			}
 			//deleting the key
 			for (int i = pos; i < cursor->size; i++)
 			{
 				cursor->key[i] = cursor->key[i + 1];
+				cursor->address[i] = cursor->address[i + 1];
 			}
 			cursor->size--;
 			if (cursor == root)//if it is root node, then make all pointers NULL
 			{
-				cout << "Deleted " << x << " from leaf node successfully\n";
+				treeLvl -= 1;
 				for (int i = 0; i < MAX + 1; i++)
 				{
 					cursor->ptr[i] = NULL;
 				}
 				if (cursor->size == 0)//if all keys are deleted
 				{
-					cout << "Tree died\n";
 					delete[] cursor->key;
+					delete[] cursor->address;
 					delete[] cursor->ptr;
 					delete cursor;
 					root = NULL;
 				}
-				return;
+				return true;
 			}
 			cursor->ptr[cursor->size] = cursor->ptr[cursor->size + 1];
 			cursor->ptr[cursor->size + 1] = NULL;
-			cout << "Deleted " << x << " from leaf node successfully\n";
 			if (cursor->size >= (MAX + 1) / 2)//no underflow
 			{
-				return;
+				return true;
 			}
-			cout << "Underflow in leaf node!\n";
 			//underflow condition
 			//first we try to transfer a key from sibling node
 			//check if left sibling exists
@@ -646,6 +671,7 @@ public:
 					for (int i = cursor->size; i > 0; i--)
 					{
 						cursor->key[i] = cursor->key[i - 1];
+						cursor->address[i] = cursor->address[i - 1];
 					}
 					//shift pointer to next leaf
 					cursor->size++;
@@ -653,14 +679,15 @@ public:
 					cursor->ptr[cursor->size - 1] = NULL;
 					//transfer
 					cursor->key[0] = leftNode->key[leftNode->size - 1];
+					cursor->address[0] = leftNode->address[leftNode->size - 1];
 					//shift pointer of leftsibling
 					leftNode->size--;
 					leftNode->ptr[leftNode->size] = cursor;
 					leftNode->ptr[leftNode->size + 1] = NULL;
 					//update parent
 					parent->key[leftSibling] = cursor->key[0];
-					cout << "Transferred " << cursor->key[0] << " from left sibling of leaf node\n";
-					return;
+					parent->address[leftSibling] = cursor->address[0];
+					return true;
 				}
 			}
 			if (rightSibling <= parent->size)//check if right sibling exist
@@ -675,6 +702,7 @@ public:
 					cursor->ptr[cursor->size - 1] = NULL;
 					//transfer
 					cursor->key[cursor->size - 1] = rightNode->key[0];
+					cursor->address[cursor->size - 1] = rightNode->address[0];
 					//shift pointer of rightsibling
 					rightNode->size--;
 					rightNode->ptr[rightNode->size] = rightNode->ptr[rightNode->size + 1];
@@ -683,11 +711,12 @@ public:
 					for (int i = 0; i < rightNode->size; i++)
 					{
 						rightNode->key[i] = rightNode->key[i + 1];
+						rightNode->address[i] = rightNode->address[i + 1];
 					}
 					//update parent
 					parent->key[rightSibling - 1] = rightNode->key[0];
-					cout << "Transferred " << cursor->key[cursor->size - 1] << " from right sibling of leaf node\n";
-					return;
+					parent->address[rightSibling - 1] = rightNode->address[0];
+					return true;
 				}
 			}
 			//must merge and delete a node
@@ -698,15 +727,14 @@ public:
 				for (int i = leftNode->size, j = 0; j < cursor->size; i++, j++)
 				{
 					leftNode->key[i] = cursor->key[j];
+					leftNode->address[i] = cursor->address[j];
 				}
-				leftNode->ptr[leftNode->size] = NULL;
+				//leftNode->ptr[leftNode->size] = NULL;
 				leftNode->size += cursor->size;
 				leftNode->ptr[leftNode->size] = cursor->ptr[cursor->size];
-				cout << "Merging two leaf nodes\n";
-				removeInternal(parent->key[leftSibling], parent, cursor);// delete parent node key
-				delete[] cursor->key;
-				delete[] cursor->ptr;
-				delete cursor;
+				removeInternal(parent->key[leftSibling], parent->address[leftSibling], parent, cursor, bufferPool);// delete parent node key
+				numOfNode -= 1;
+				numOfNodeDel += 1;
 			}
 			else if (rightSibling <= parent->size)//if right sibling exist
 			{
@@ -715,17 +743,17 @@ public:
 				for (int i = cursor->size, j = 0; j < rightNode->size; i++, j++)
 				{
 					cursor->key[i] = rightNode->key[j];
+					cursor->address[i] = rightNode->address[j];
 				}
-				cursor->ptr[cursor->size] = NULL;
+				//cursor->ptr[cursor->size] = NULL;
 				cursor->size += rightNode->size;
 				cursor->ptr[cursor->size] = rightNode->ptr[rightNode->size];
-				cout << "Merging two leaf nodes\n";
-				removeInternal(parent->key[rightSibling - 1], parent, rightNode);// delete parent node key
-				delete[] rightNode->key;
-				delete[] rightNode->ptr;
-				delete rightNode;
+				removeInternal(parent->key[rightSibling - 1], parent->address[rightSibling - 1], parent, rightNode, bufferPool);// delete parent node key
+				numOfNode -= 1;
+				numOfNodeDel += 1;
 			}
 		}
+		return true;
 	}
 
 	void display(Node* cursor, int level, int child)
@@ -751,7 +779,7 @@ public:
 			}
 		}
 
-		//depth first display
+		// depth first display
 		//if (cursor != NULL)
 		//{
 		//	for (int i = 0; i < cursor->size; i++)
@@ -779,6 +807,11 @@ public:
 		return treeLvl;
 	}
 
+	int getNumOfNodeDel()
+	{
+		return numOfNodeDel;
+	}
+
 	Node* getRoot()
 	{
 		return root;
@@ -802,6 +835,7 @@ public:
 			//}
 			delete[] cursor->key;
 			delete[] cursor->ptr;
+			delete[] cursor->address;
 			delete cursor;
 		}
 	}

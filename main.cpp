@@ -11,10 +11,19 @@ typedef unsigned int uint;
 
 int main()
 {
-	uint blkSize, n;
+	uint input, blkSize, n;
 	string line;
-	cout << "Enter the block size (Bytes): ";
-	cin >> blkSize;
+	cout << "Choose the block size (Bytes):" << endl;
+	cout << "1. 100 Bytes" << endl;
+	cout << "2. 500 Bytes" << endl;
+	cout << "0. Exit" << endl;
+	cin >> input;
+	if (input == 1)
+		blkSize = 100;
+	else if (input == 2)
+		blkSize = 500;
+	else
+		return 0;
 
 	// 200 MB of memory allocated
 	bufferPool bufferPool{200000000, blkSize};
@@ -75,5 +84,28 @@ int main()
 	cout << endl << "------------------------Experiment 4------------------------" << endl << endl;
 	cout << "Searching for 'numVotes' = 0 to 500..." << endl << endl;
 	tree.search(0, 500);
+
+	cout << endl << "------------------------Experiment 5------------------------" << endl << endl;
+	cout << "Deleting for 'numVotes' = 51..." << endl;
+	while (tree.remove(20, &bufferPool));
+	//tree.remove(1645, &bufferPool);
+	//tree.remove(198, &bufferPool);
+	//tree.remove(1342, &bufferPool);
+	//tree.remove(120, &bufferPool);
+	//tree.remove(2127, &bufferPool);
+	//tree.remove(115, &bufferPool);
+	//tree.remove(652, &bufferPool);
+	//tree.remove(1807, &bufferPool);
+	//tree.remove(154, &bufferPool);
+	//tree.remove(6018, &bufferPool);
+	//tree.remove(262, &bufferPool);
+	//tree.remove(10287, &bufferPool);
+	//tree.remove(1575, &bufferPool);
+	//tree.remove(2850, &bufferPool);
+	//tree.remove(888, &bufferPool);
+	cout << "Number of Nodes deleted = " << tree.getNumOfNodeDel() << endl;
+	cout << "Number of Nodes of B+ Tree = " << tree.getNumOfNode() << endl;
+	cout << "Height of the B+ Tree = " << tree.getTreeLvl() << endl;
+	tree.display(tree.getRoot(), 1, 0);
 	return 0;
 }
