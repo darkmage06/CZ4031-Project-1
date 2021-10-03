@@ -78,31 +78,16 @@ int main()
 	tree.display(tree.getRoot(), 1, 0);
 	
 	cout << endl << "------------------------Experiment 3------------------------" << endl << endl;
-	cout << "Searching for 'numVotes' = 20..." << endl << endl;
-	tree.search(20, 20);
+	cout << "Searching for 'numVotes' = 500..." << endl << endl;
+	tree.search(500, 500, &bufferPool);
 
 	cout << endl << "------------------------Experiment 4------------------------" << endl << endl;
-	cout << "Searching for 'numVotes' = 0 to 500..." << endl << endl;
-	tree.search(0, 500);
+	cout << "Searching for 'numVotes' = 30000 to 40000..." << endl << endl;
+	tree.search(30000, 40000, &bufferPool);
 
 	cout << endl << "------------------------Experiment 5------------------------" << endl << endl;
-	cout << "Deleting for 'numVotes' = 51..." << endl;
-	while (tree.remove(20, &bufferPool));
-	//tree.remove(1645, &bufferPool);
-	//tree.remove(198, &bufferPool);
-	//tree.remove(1342, &bufferPool);
-	//tree.remove(120, &bufferPool);
-	//tree.remove(2127, &bufferPool);
-	//tree.remove(115, &bufferPool);
-	//tree.remove(652, &bufferPool);
-	//tree.remove(1807, &bufferPool);
-	//tree.remove(154, &bufferPool);
-	//tree.remove(6018, &bufferPool);
-	//tree.remove(262, &bufferPool);
-	//tree.remove(10287, &bufferPool);
-	//tree.remove(1575, &bufferPool);
-	//tree.remove(2850, &bufferPool);
-	//tree.remove(888, &bufferPool);
+	cout << "Deleting for 'numVotes' = 1000..." << endl;
+	tree.remove(1000, &bufferPool);
 	cout << "Number of Nodes deleted = " << tree.getNumOfNodeDel() << endl;
 	cout << "Number of Nodes of B+ Tree = " << tree.getNumOfNode() << endl;
 	cout << "Height of the B+ Tree = " << tree.getTreeLvl() << endl;
