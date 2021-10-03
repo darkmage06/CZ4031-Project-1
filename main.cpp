@@ -28,7 +28,7 @@ int main()
 	// 200 MB of memory allocated
 	bufferPool bufferPool{200000000, blkSize};
 	vector<Address> dataset;
-	cout << "Reading data from data file..." << endl;
+	cout << endl << "Reading data from data file..." << endl;
 
 	ifstream dataFile("data.tsv");
 	if (dataFile.is_open())
