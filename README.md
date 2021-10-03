@@ -23,4 +23,5 @@ The code will take around 7 minutes to finish running.
 2. Double click on CZ4031 Project 1.exe
 
 The code will take around 7 minutes to finish running.
+
 Please ensure that the data.tsv file is in the same folder as the solution or executable file.
