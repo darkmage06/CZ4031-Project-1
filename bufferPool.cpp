@@ -3,7 +3,8 @@
 
 using namespace std;
 
-bufferPool::bufferPool(uint bufferPoolSize, uint blkSize) {
+bufferPool::bufferPool(uint bufferPoolSize, uint blkSize)
+{
     this->bufferPoolSize = bufferPoolSize;
     this->blkSize = blkSize;
     this->usedBlkSize = 0;
@@ -83,6 +84,7 @@ void bufferPool::deleteRecord(Address address)
         {
             currentBlkSizeUsed -= blkSize;
             numBlkAlloc--;
+            numBlkAvail++;
         }
     }
 

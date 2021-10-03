@@ -3,9 +3,10 @@
 
 typedef unsigned int uint;
 typedef unsigned char uchar;
-const int SIZE = 10;
+const int SIZE = 11;
 
-struct Record {
+struct Record 
+{
     /*
     * Size of each record = 20 bytes
     */
@@ -18,6 +19,13 @@ struct Address
 {
     uchar* blockAddress;
     uint offset;
+};
+
+struct LLNode
+{
+    Address address;
+    int size;
+    struct LLNode* next;
 };
 
 class bufferPool {
